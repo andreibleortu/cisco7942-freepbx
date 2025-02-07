@@ -10,7 +10,7 @@
               <keepAlive>2428</keepAlive>
             </mgcpPorts>
           </ports>
-          <processNodeName>FREEPBX SERVER IP GOES HERE</processNodeName>
+          <processNodeName><!--FREEPBX-HOSTNAME--></processNodeName>
         </callManager>
       </member>
     </members>

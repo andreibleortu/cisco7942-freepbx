@@ -1,74 +1,60 @@
 # Cisco7942 FreePBX Integration
 
-If you're getting rid of CUCM and thinking, "I'd like to use Asterisk (Free PBX in this case) with all these 7942s I have lying around", hopefully this will help you get things up and running.
+If you're getting rid of CUCM and thinking, "I'd like to use Asterisk (FreePBX in this case) with all these 7942s I have lying around", hopefully this will help you get things up and running.
 
 #### This guide and set of files covers:
- * Free PBX gotchas (v14.0.5.25)
- * Where to get the SIP Firmware for your existing CUCM Phones (Latest available dates to Feb 2017)
+ * FreePBX `pjsip` configuration
+ * Where to get the SIP Firmware for your existing CUCM Phones
  * How to flash/install/use the Firmware
  * Sample Configuration files to get you started
- * Free PBX address book integration via the directory key to mimic CUCM behaviour as closely as possible
+ * FreePBX address book integration via the directory key to mimic CUCM behaviour as closely as possible
  * Making it pretty with background images and custom ringtones
  * Troubleshooting tips
  
 #### You will need:
-  * A Free PBX server setup and working (VM is fine)
+  * A FreePBX server setup and working (VM is fine)
   * Working DHCP for the phones with access to set TFTP Options (Option 66)
-  * A Cisco account to download the firmware (it is free to sign up and download the firmware, you don't need an active support contract)
+  * Firmware for the 7942s (SIP42.9-4-2SR3-1S)
   * An NTP server so the phones can keep time (Windows Active Directory servers do work, failing that any NTP device will do, most home routers can serve NTP too)
 
 #### Things that don't work:
   * Conference calls can not be initiated from the phone (the calls don't join)
   * Phone Error: No Trust List Installed - Due to missing tlv files, you can't get these without active Cisco contracts
   * Phone Error: Error updating locale - Due to missing locale jars, again you need an active Cisco contract to get these
-  * Phones are prone to freezing, I'm not sure if this is due to old flaky phones on my part or if this applies to all 7942s
+  * ~~Phones are prone to freezing, I'm not sure if this is due to old flaky phones on my part or if this applies to all 7942s~~ No longer the case, with the new config file.
   * Auto update on config changes don't work.  This might be my error not generating proper version stamps but I can't even see the phone polling the TFTP server for changes so I doubt it works at all under SIP firmware.
-  
-I must add that this is just information cobbled together from many different places over the course of several months. If you recognise files/explanations from elsewhere please send me a message and I'll add it to my list of references.
 
 ## FreePBX Setup
 
-Among many other things you'll have to do to get the phones working, there are a few simple settings changes that are required in FreePBX before you get too far down the rabbit hole.
+Older Cisco IP phones used to only work with `chan_sip`. I've managed to set them up with `pjsip` on FreePBX, since newer versions have completely removed `chan_sip`. I've also set `pjsip` to port 5160 UDP. 
 
-For every extension that will use a 7942 you need to change it to use the CHAN_SIP driver and use Port 5160.
+**To use `pjsip`, go to FreePBX > Connectivity > Extensions > Edit > Advanced and disable "Rewrite Contact" and "Force rport". Also, set the port to 5160. Don't use passwords for the extensions.**
 
-For whatever reason, PJSIP does not work with these phones.  Using CHAN_SIP defaults to port 5160 but doesn't change the port settings if you've already bulk added the extension under PJSIP so if you're having issues registering phones check the driver and port settings.
-
-`Admin --> Applications --> Extensions --> Advanced`
-
-**Set CHAN_SIP**
-
-![FreePBX CHAN_SIP Driver](https://github.com/waynemerricks/Cisco7942FreePBX/raw/master/images/pbx_chan_sip.png "Set CHAN_SIP Driver")
-
-**Set Port to 5160**
-
-![CHAN_SIP Port 5160](https://github.com/waynemerricks/Cisco7942FreePBX/raw/master/images/pbx_port_5160.png "Set Port to 5160")
+Not using passwords for FreePBX extensions is because authentication doesn't seem to work with `pjsip`. I've completely removed the password for my extensions for the phones to work. This is a security risk, so be careful. Use them on a trusted network only. Don't expose port 5160 to the internet.
 
 ## Getting the firmware
 
-By default, the CUCM phones are set to the SCCP protocol and will not work under FreePBX, you need to download the SIP firmware directly from Cisco.
+By default, the CUCM phones are set to the SCCP protocol and will not work under FreePBX, you need to download the SIP firmware.
 
-[Cisco 7942 SIP Firmware 9.4(2)SR3 February 2017: cmterm-7942_7962-sip.9-4-2SR3-1.zip 6.09 MB](https://software.cisco.com/download/home/281346593/type/282074288/release/9.4%25282%2529SR3)
-
-Make sure you download the ZIP File full of firmware only, the sgn file is not usable.  As mentioned, you'll need a free Cisco account before they let you download these files.
+Cisco doesn't seem to be hosting the firmware on their main site anymore but I've found on the following link: https://github.com/lparakhin/-Cisco-7962G-SIP. Beware, this download isn't from the official Cisco site so use at your own risk.
 
 ## Flashing the firmware
 
 The 7942s require a TFTP server for all their configuration files and firmware.  The FreePBX server already has TFTP built in for use with other modules so you can use that for minimal effort.  Otherwise look into tftpd-hpa for Debian/Ubuntu, once set up, the procedure is the same as using FreePBX directly (Debian likes to use /srv/tftp, Ubuntu /var/lib/tftpboot).
 
-There are tftp servers available for Windows but I don't use them so can't recommend a good one.  If you're using Windows anything referred to as /tftpboot is the root of your tftp server.
-
-Inside the Firmware zip file you'll have the following files:
- * apps42.9-4-2ES26.sbn
- * cnu42.9-4-2ES26.sbn
- * cvm42sip.9-4-2ES26.sbn
- * dsp42.9-4-2ES26.sbn
- * jar42sip.9-4-2ES26.sbn
- * SIP42.9-4-2SR3-1S.loads
- * term42.default.loads
- * term62.default.loads
- 
-All of these need to be copied to /tftpboot on FreePBX (or respective directories on Debian/Ubuntu/Windows).
+Inside the tftp folder file you'll have the following files:
+* apps42.9-4-2ES26.sbn
+* cnu42.9-4-2ES26.sbn
+* cvm42sip.9-4-2ES26.sbn
+* Desktops
+* dialplan.xml
+* dsp42.9-4-2ES26.sbn
+* jar42sip.9-4-2ES26.sbn
+* SEP64D9896847E9.cnf.xml
+* SIP42.9-4-2SR3-1S.loads
+* term42.default.loads
+* term62.default.loads
+* XMLDefault.cnf.xml
 
 With these in place, the phone still won't do much as you need to set up a bunch of XML files to tell the phone what firmware to load.
 
